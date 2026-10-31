@@ -82,11 +82,11 @@ namespace MsgBoxesNotifs {
         }
 
         inline void NoFuel(std::string_view item, std::string_view fuel) {
-            RE::DebugNotification(std::format("I need {} to fuel my {}.", fuel, item).c_str());
+            RE::SendHUDMessage::ShowHUDMessage(std::format("I need {} to fuel my {}.", fuel, item).c_str());
         }
         
         inline void Refuel(std::string_view item, std::string_view fuel) {
-            RE::DebugNotification(std::format("Adding {} to my {}...", fuel, item).c_str());
+            RE::SendHUDMessage::ShowHUDMessage(std::format("Adding {} to my {}...", fuel, item).c_str());
         }
 
         void Remaining(int remaining, std::string_view item);

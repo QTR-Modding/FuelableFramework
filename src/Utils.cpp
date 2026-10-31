@@ -60,11 +60,11 @@ void MsgBoxesNotifs::InGame::Remaining(int remaining, std::string_view item) {
     if (remaining < 0.00001)
         return;
     else if (remaining > 1)
-        RE::DebugNotification(std::format("I have about {} hours left in my {}.", remaining, item).c_str());
+        RE::SendHUDMessage::ShowHUDMessage(std::format("I have about {} hours left in my {}.", remaining, item).c_str());
     else if (remaining > 0.5)
-        RE::DebugNotification(std::format("I have about an hour left in my {}.", item).c_str());
+        RE::SendHUDMessage::ShowHUDMessage(std::format("I have about an hour left in my {}.", item).c_str());
     else
-        RE::DebugNotification(std::format("I don't have much left in my {}...", item).c_str());
+        RE::SendHUDMessage::ShowHUDMessage(std::format("I don't have much left in my {}...", item).c_str());
 }
 
 float almost_constant_with_accelerated_cutoff(float x, float start_value, float cutoff, int power) { // Ensure x is within [0, 1]
