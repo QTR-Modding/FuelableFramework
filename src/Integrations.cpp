@@ -78,6 +78,9 @@ namespace {
             if (!uses_prompts) return;
             client_ = SkyPromptAPI::RequestClientID();
             if (!client_) return;
+            if (!SkyPromptAPI::RequestTheme(client_, "FuelableFramework")) {
+                logger::warn("SkyPrompt could not load the FuelableFramework theme");
+            }
             std::set<SkyPromptAPI::HandshakeKey> requested;
             for (const auto& source : manager_->sources) {
                 if (!source.options->skyprompt_enabled) continue;
@@ -102,13 +105,19 @@ namespace {
             const auto& source = manager_->sources[index];
             const auto object = source.formid;
             const auto fuel = source.fuel;
+            // SkyPrompt removes completed hold actions; restore them for the next press.
+            static_cast<void>(SkyPromptAPI::SendPrompt(this, client_));
             SKSE::GetTaskInterface()->AddTask([object, fuel]() {
                 auto& integration = GetSingleton();
                 const auto item = SelectedItem();
                 if (!item || item->GetFormID() != object) return;
                 auto* source = integration.manager_->FindSource(object, fuel);
-                if (source && source->options->skyprompt_enabled) {
-                    integration.manager_->Refuel(*source);
+                if (source && source->options->skyprompt_enabled && integration.manager_->Refuel(*source)) {
+                    if (!integration.lorebox_available_ || !source->options->lorebox_enabled) return;
+                    const auto menu = RE::UI::GetSingleton()->GetMenu<RE::InventoryMenu>();
+                    if (menu && menu->uiMovie) {
+                        static_cast<void>(menu->uiMovie->Invoke("_global.LoreBox.instance.redraw", nullptr, nullptr, 0));
+                    }
                 }
             });
         }
@@ -168,13 +177,10 @@ namespace {
                 if (!text.empty()) text += "<br>";
                 text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_text_color, summary);
             }
-            bool first_row = true;
             for (const auto& [source, stored] : group.sources) {
                 const auto row = FormatText(options.lorebox_text, *source, stored, group.remaining);
                 if (row.empty()) continue;
-                if (!text.empty()) text += first_row ? "<br><br>" : "<br>";
-                first_row = false;
-                text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_option_color, row);
+                text += std::format("<font color=\"#{:06X}\"><li>{}</li></font>", options.lorebox_option_color, row);
             }
             return text;
         }
@@ -225,7 +231,7 @@ namespace {
             for (std::size_t index = 0; index < texts_.size(); ++index) {
                 if (!texts_[index].empty()) {
                     prompts_.emplace_back(texts_[index], 0, static_cast<SkyPromptAPI::ActionID>(indices_[index]),
-                                          SkyPromptAPI::PromptType::kSinglePress, preview_id);
+                                          SkyPromptAPI::PromptType::kHold, preview_id);
                 }
             }
             if (!prompts_.empty()) {

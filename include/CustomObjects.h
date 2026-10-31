@@ -43,7 +43,7 @@ struct SourceOptions {
     bool skyprompt_enabled = true;
     std::string lorebox_title = "Fuelable Framework";
     std::string lorebox_summary = "Remaining: {total_remaining}";
-    std::string lorebox_text = "- {requirements} (+{duration})";
+    std::string lorebox_text = "{requirements} (+{duration})";
     std::uint32_t lorebox_title_color = 0xA86CCD;
     std::uint32_t lorebox_text_color = 0xE8EAED;
     std::uint32_t lorebox_option_color = 0xFFCC80;
