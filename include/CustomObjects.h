@@ -62,34 +62,21 @@ struct FuelCost {
 struct LightSource {
     float duration;
     RE::FormID formid;
-    std::string editorid;
     RE::FormID fuel;
-    std::string fuel_editorid;
     SourceOptions options;
     FuelCost cost;
     RE::TESBoundObject* object = nullptr;
 
     bool init_failed=false;
 
-    LightSource(RE::FormID id, const std::string id_str, float duration, RE::FormID fuelid,
-                const std::string fuelid_str, const SourceOptions& source_options = {})
-        : formid(id), editorid(id_str), duration(duration), fuel(fuelid), fuel_editorid(fuelid_str), options(source_options){
-        if (!formid) {
-            if (auto form = RE::TESForm::LookupByEditorID<RE::TESForm>(editorid)) {
-                logger::info("Found formid for editorid {}", editorid);
-                formid = form->GetFormID();
-            } else logger::info("Could not find formid for editorid {}", editorid);
+    LightSource(RE::FormID id, float duration, RE::FormID fuelid, const SourceOptions& source_options = {})
+        : duration(duration), formid(id), fuel(fuelid), options(source_options),
+          object(FormReader::GetFormByID<RE::TESBoundObject>(id)) {
+        init_failed = !object || !cost.Initialize(FormReader::GetFormByID(fuel));
+        if (init_failed) {
+            logger::error("Failed to initialize source {:08X} with fuel {:08X}", formid, fuel);
         }
-        if (!fuel) {
-            if (auto form = RE::TESForm::LookupByEditorID<RE::TESForm>(fuel_editorid)) {
-                logger::info("Found formid2 for editorid2 {}", editorid);
-                fuel = form->GetFormID();
-            } else logger::info("Could not find formid for editorid {}", editorid);
-        }
-
-        object = FormReader::GetFormByID<RE::TESBoundObject>(formid, editorid);
-        if (!object || !cost.Initialize(FormReader::GetFormByID(fuel, fuel_editorid))) InitFailed();
-    };
+    }
 
     bool operator < (const LightSource& other) const { return formid < other.formid; }
 
@@ -98,8 +85,7 @@ struct LightSource {
     float elapsed = 0.f;
 
     std::string_view GetName() const {
-        if (object) return object->GetName();
-        else return "";
+        return object->GetName();
     };
 
     std::string_view GetFuelName() const {
@@ -109,11 +95,6 @@ struct LightSource {
     RE::TESBoundObject* GetBoundObject() const { return object; };
 
 
-private:
-    void InitFailed() {
-        init_failed = true;
-        logger::error("Failed to initialize LightSource with formid {} and fuelid {}", formid, fuel);
-    }
 };
 
 struct UISource {

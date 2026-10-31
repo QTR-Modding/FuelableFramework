@@ -1,6 +1,41 @@
 #include "Settings.h"
+#include "CLibUtilsQTR/PresetHelpers/PresetHelpersTXT.hpp"
 
 namespace {
+    std::vector<RE::FormID> ResolveFormIDs(const std::string& value, bool forceEditorID) {
+        {
+            std::shared_lock lock(PresetHelpers::formGroups_mutex_);
+            if (const auto group = PresetHelpers::formGroups.find(value); group != PresetHelpers::formGroups.end()) {
+                std::vector<RE::FormID> forms(group->second.begin(), group->second.end());
+                std::ranges::sort(forms);
+                return forms;
+            }
+        }
+        if (forceEditorID) {
+            if (auto* form = FormReader::GetFormByID(0, value)) return {form->GetFormID()};
+            return {};
+        }
+        if (const auto form = FormReader::GetFormEditorIDFromString(value)) return {form};
+        return {};
+    }
+
+    void AddSource(LightSource entry, const std::filesystem::path& file,
+                   std::vector<LightSource>& sources, std::vector<std::filesystem::path>& origins) {
+        const auto found = std::ranges::find_if(sources, [&](const LightSource& existing) {
+            return existing.formid == entry.formid && existing.fuel == entry.fuel;
+        });
+        if (found != sources.end()) {
+            const auto index = static_cast<std::size_t>(found - sources.begin());
+            logger::warn("Configuration {} replaces source {:08X}/fuel {:08X} from {}.",
+                         file.string(), entry.formid, entry.fuel, origins[index].string());
+            *found = std::move(entry);
+            origins[index] = file;
+        } else {
+            sources.push_back(std::move(entry));
+            origins.push_back(file);
+        }
+    }
+
     SourceOptions LoadSourceOptions(const CSimpleIniA& ini) {
         SourceOptions options;
         options.auto_refuel = ini.GetBoolValue("Refueling", "AutoRefuel", options.auto_refuel);
@@ -33,33 +68,25 @@ namespace {
                 logger::warn("Invalid duration for {} in {}. Skipping.", key.pItem, file.string());
                 continue;
             }
-            const RE::FormID sourceID = forceEditorID ? 0 : FormReader::GetFormEditorIDFromString(source);
-            const RE::FormID fuelID = forceEditorID ? 0 : FormReader::GetFormEditorIDFromString(fuel);
-            if (!forceEditorID && (!sourceID || !fuelID)) {
-                logger::warn("Unresolved source or fuel for {} in {}. Skipping.", key.pItem, file.string());
+            const auto sourceIDs = ResolveFormIDs(source, forceEditorID);
+            const auto fuelIDs = ResolveFormIDs(fuel, forceEditorID);
+            if (sourceIDs.empty() || fuelIDs.empty()) {
+                logger::warn("Empty group or unresolved source/fuel for {} in {}. Skipping.", key.pItem, file.string());
                 continue;
             }
-            LightSource entry(sourceID, forceEditorID ? source : "", static_cast<float>(duration),
-                              fuelID, forceEditorID ? fuel : "", options);
-            if (entry.init_failed) {
-                logger::warn("Invalid source or fuel for {} in {}. Skipping.", key.pItem, file.string());
-                continue;
+            for (const auto sourceID : sourceIDs) {
+                for (const auto fuelID : fuelIDs) {
+                    LightSource entry(sourceID, static_cast<float>(duration), fuelID, options);
+                    if (entry.init_failed) {
+                        logger::warn("Invalid source {:08X}/fuel {:08X} for {} in {}. Skipping.",
+                                     sourceID, fuelID, key.pItem, file.string());
+                        continue;
+                    }
+                    AddSource(std::move(entry), file, sources, origins);
+                    logger::info("Loaded source {:08X} with fuel {:08X} and duration {} from {}.",
+                                 sourceID, fuelID, duration, file.string());
+                }
             }
-            const auto found = std::ranges::find_if(sources, [&](const LightSource& existing) {
-                return existing.formid == entry.formid && existing.fuel == entry.fuel;
-            });
-            if (found != sources.end()) {
-                const auto index = static_cast<std::size_t>(found - sources.begin());
-                logger::warn("Configuration {} replaces source {:08X}/fuel {:08X} from {}.",
-                             file.string(), entry.formid, entry.fuel, origins[index].string());
-                *found = std::move(entry);
-                origins[index] = file;
-            } else {
-                sources.push_back(std::move(entry));
-                origins.push_back(file);
-            }
-            logger::info("Loaded source {} with fuel {} and duration {} from {}.",
-                         source, fuel, duration, file.string());
         }
     }
 }
@@ -73,6 +100,8 @@ std::vector<LightSource> Settings::LoadINISettings() {
         logger::info("powerofthree's Tweaks is not installed. Disabling EditorID support.");
         po3installed = false;
     }
+
+    PresetHelpers::TXT_Helpers::GatherForms("Data/SKSE/Plugins/FuelableFramework/formGroups");
 
     CSimpleIniA ini;
     std::vector<LightSource> lightSources;
