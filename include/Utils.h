@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include "ClibUtil/editorID.hpp"
+#include "CLibUtilsQTR/FormReader.hpp"
 
 const auto mod_name = static_cast<std::string>(SKSE::PluginDeclaration::GetSingleton()->GetName());
 
@@ -20,16 +21,6 @@ const auto load_order_msgbox = std::format(
 
 
 
-template <class T = RE::TESForm>
-static T* GetFormByID(const RE::FormID id, const std::string& editor_id = "") {
-    if (!editor_id.empty()) {
-        if (auto* form = RE::TESForm::LookupByEditorID<T>(editor_id)) return form;
-    }
-    if (T* form = RE::TESForm::LookupByID<T>(id)) return form;
-    return nullptr;
-};
-
-
 namespace Utilities{
 
     const auto mod_name = static_cast<std::string>(SKSE::PluginDeclaration::GetSingleton()->GetName());
@@ -42,7 +33,7 @@ namespace Utilities{
     float Round(float number, int decimalPlaces);
     int Round2Int(float number);
 
-    bool isValidHexWithLength7or8(const char* input);
+    std::vector<std::uint64_t> ParseHandshakeKeys(std::string_view text);
     std::string DecodeTypeCode(std::uint32_t typeCode);
 
     std::filesystem::path GetLogPath();
@@ -110,6 +101,3 @@ namespace MsgBoxesNotifs {
 
 float almost_constant_with_accelerated_cutoff(float x, float start_value = 1.0f, float cutoff = 0.70f,
                                                      int power = 10);
-
-RE::FormID GetFormEditorIDFromString(const std::string& formEditorId);
-

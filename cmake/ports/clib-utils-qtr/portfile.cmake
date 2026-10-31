@@ -1,0 +1,13 @@
+# header-only library
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO QTR-Modding/CLibUtilsQTR
+    REF a8dc4098166d4884b86fac9170183ab49845ba46
+    SHA512 791d4ea3a552696288a7199f52d9eaf32a2afe15c36b58ac1bf312998db6f995e70617f903facb1733ec161247be5f12038b66ce02764e1d517e545140980cd7
+    HEAD_REF main
+)
+
+# Install codes
+set(CLibUtilsQTR_SOURCE	${SOURCE_PATH}/include/CLibUtilsQTR)
+file(INSTALL ${CLibUtilsQTR_SOURCE} DESTINATION ${CURRENT_PACKAGES_DIR}/include)
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")

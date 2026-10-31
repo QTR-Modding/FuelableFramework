@@ -13,7 +13,9 @@
     "directxtk",
     "boost-stl-interfaces",
     "clib-util",
-    "skse-mcp"
+    { "name": "clib-utils-qtr", "default-features": false, "features": ["skyrim"] },
+    "skse-mcp",
+    "skyprompt-api"
   ],
   "builtin-baseline": "ee12231b20c95013c6638d845d04c91559a1d1ff"
 }

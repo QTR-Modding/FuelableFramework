@@ -17,6 +17,7 @@ namespace Settings {
     inline bool ql_enabled = false;
     inline RE::FormID ql_formid = 0;
     inline RE::FormID ql_fuel = 0;
+    inline FuelCost ql_cost;
     inline float ql_duration = 0.f;
     //inline Float3 ql_radius(700.f, 700.f, 700.f);
 

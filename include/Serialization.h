@@ -101,6 +101,7 @@ inline bool BaseData<T>::Load(SKSE::SerializationInterface* serializationInterfa
 
     for (auto i = 0; i < recordDataSize; i++) {
         serializationInterface->ReadRecordData(formId);
+        serializationInterface->ReadRecordData(value);
         // Ensure form still exists
         // bunu nasil yapacagiz?
         FormID2 fixedId;
@@ -111,8 +112,7 @@ inline bool BaseData<T>::Load(SKSE::SerializationInterface* serializationInterfa
             continue;
         }
 
-        serializationInterface->ReadRecordData(value);
-        m_Data[formId] = value;
+        m_Data[fixedId] = value;
     }
     return true;
 }
@@ -122,3 +122,5 @@ inline void BaseData<T>::Clear() {
     Locker locker(m_Lock);
     m_Data.clear();
 };
+
+void InitializeSerialization();

@@ -1,5 +1,69 @@
 #include "Settings.h"
 
+namespace {
+    SourceOptions LoadSourceOptions(const CSimpleIniA& ini) {
+        SourceOptions options;
+        options.auto_refuel = ini.GetBoolValue("Refueling", "AutoRefuel", options.auto_refuel);
+        options.lorebox_enabled = ini.GetBoolValue("LoreBox", "Enabled", options.lorebox_enabled);
+        options.lorebox_text = ini.GetValue("LoreBox", "Text", options.lorebox_text.c_str());
+        options.skyprompt_enabled = ini.GetBoolValue("SkyPrompt", "Enabled", options.skyprompt_enabled);
+        options.prompt_text = ini.GetValue("SkyPrompt", "Text", options.prompt_text.c_str());
+        options.compatible_keys = Utilities::ParseHandshakeKeys(ini.GetValue("SkyPrompt", "CompatibleKeys", ""));
+        return options;
+    }
+
+    void LoadSources(const CSimpleIniA& ini, const std::filesystem::path& file,
+                     std::vector<LightSource>& sources, std::vector<std::filesystem::path>& origins) {
+        CSimpleIniA::TNamesDepend names;
+        ini.GetAllKeys(Settings::InISections[0], names);
+        const auto options = LoadSourceOptions(ini);
+        const bool forceEditorID = ini.GetBoolValue("Other Stuff", "ForceEditorID", Settings::force_editor_id) &&
+                                   Settings::po3installed;
+        for (const auto& key : names) {
+            const char* source = ini.GetValue(Settings::InISections[0], key.pItem);
+            const char* fuel = ini.GetValue(Settings::InISections[1], key.pItem);
+            if (!source || !*source || !fuel || !*fuel) {
+                logger::warn("Missing source or fuel for {} in {}. Skipping.", key.pItem, file.string());
+                continue;
+            }
+            const char* durationText = ini.GetValue(Settings::InISections[2], key.pItem);
+            const double duration = durationText && *durationText ?
+                ini.GetDoubleValue(Settings::InISections[2], key.pItem, 0.0) : std::strtod(Settings::default_duration, nullptr);
+            if (!std::isfinite(duration) || duration <= 0.0 || duration > std::numeric_limits<float>::max()) {
+                logger::warn("Invalid duration for {} in {}. Skipping.", key.pItem, file.string());
+                continue;
+            }
+            const RE::FormID sourceID = forceEditorID ? 0 : FormReader::GetFormEditorIDFromString(source);
+            const RE::FormID fuelID = forceEditorID ? 0 : FormReader::GetFormEditorIDFromString(fuel);
+            if (!forceEditorID && (!sourceID || !fuelID)) {
+                logger::warn("Unresolved source or fuel for {} in {}. Skipping.", key.pItem, file.string());
+                continue;
+            }
+            LightSource entry(sourceID, forceEditorID ? source : "", static_cast<float>(duration),
+                              fuelID, forceEditorID ? fuel : "", options);
+            if (entry.init_failed) {
+                logger::warn("Invalid source or fuel for {} in {}. Skipping.", key.pItem, file.string());
+                continue;
+            }
+            const auto found = std::ranges::find_if(sources, [&](const LightSource& existing) {
+                return existing.formid == entry.formid && existing.fuel == entry.fuel;
+            });
+            if (found != sources.end()) {
+                const auto index = static_cast<std::size_t>(found - sources.begin());
+                logger::warn("Configuration {} replaces source {:08X}/fuel {:08X} from {}.",
+                             file.string(), entry.formid, entry.fuel, origins[index].string());
+                *found = std::move(entry);
+                origins[index] = file;
+            } else {
+                sources.push_back(std::move(entry));
+                origins.push_back(file);
+            }
+            logger::info("Loaded source {} with fuel {} and duration {} from {}.",
+                         source, fuel, duration, file.string());
+        }
+    }
+}
+
 std::vector<LightSource> Settings::LoadINISettings() {
     logger::info("Loading ini settings");
     if (Utilities::IsPo3Installed()) {
@@ -11,8 +75,8 @@ std::vector<LightSource> Settings::LoadINISettings() {
     }
 
     CSimpleIniA ini;
-    CSimpleIniA::TNamesDepend source_names;
     std::vector<LightSource> lightSources;
+    std::vector<std::filesystem::path> origins;
 
     ini.SetUnicode();
     ini.LoadFile(Utilities::path);
@@ -50,13 +114,13 @@ std::vector<LightSource> Settings::LoadINISettings() {
     ql_enabled = ini.GetBoolValue(InISections[4], "Enabled", false);
     if (ql_enabled) {
         const auto temp_fuel_id = std::string(ini.GetValue(InISections[4], "Fuel"));
-        ql_fuel = GetFormEditorIDFromString(temp_fuel_id);
-        ql_formid = GetFormEditorIDFromString(ql_editorid);
+        ql_fuel = FormReader::GetFormEditorIDFromString(temp_fuel_id);
+        ql_formid = FormReader::GetFormEditorIDFromString(ql_editorid);
         if (!ql_formid || !ql_fuel) {
             logger::error("QuickLight is enabled but formid or fuel is invalid. Disabling QuickLight.");
             ql_enabled = false;
         }
-        else if (!RE::TESForm::LookupByID<RE::TESBoundObject>(ql_fuel)) {
+        else if (!ql_cost.Initialize(RE::TESForm::LookupByID(ql_fuel))) {
             logger::error("QuickLight is enabled but fuel formid is invalid. Disabling QuickLight.");
             ql_enabled = false;
         }
@@ -110,69 +174,35 @@ std::vector<LightSource> Settings::LoadINISettings() {
     enabled_err_msgbox = ini.GetBoolValue(
         InISections[3], OtherStuffDefKeys[3]);  // logger::info("enabled_err_msgbox: {}", enabled_err_msgbox);
 
-    // Sections: Light Sources, Fuel Sources, Durations
-    ini.GetAllKeys(InISections[0], source_names);
-    auto numSources = source_names.size();
-    logger::info("source_names size {}", numSources);
-
-    lightSources.reserve(numSources);
-
-    for (CSimpleIniA::TNamesDepend::const_iterator it = source_names.begin(); it != source_names.end(); ++it) {
-        logger::info("source name {}", it->pItem);
-        const char* val1 = ini.GetValue(InISections[0], it->pItem);
-        const char* val2 = ini.GetValue(InISections[1], it->pItem);
-        const char* val3 = ini.GetValue(InISections[2], it->pItem);
-        if (!val1 || !val2) {
-            logger::warn("Source {} is missing a value. Skipping.", it->pItem);
-            continue;
-        } else
-            logger::info("Source {} has a value of {}", it->pItem, val1);
-        if (std::strlen(val1) && std::strlen(val2)) {
-            logger::info("We have valid entries for source: {} and fuel: {}", val1, val2);
-            // Duration of the source
-            float duration;
-            if (!val3 || !std::strlen(val3)) {
-                logger::warn("Source {} is missing a duration value. Using default value of {}.", it->pItem,
-                             default_duration);
-                duration = std::stof(default_duration);
-                ini.SetValue(InISections[2], it->pItem, default_duration);
-            } else {
-                logger::info("Source {} has a duration value of {}.", it->pItem, val3);
-                duration = std::stof(val3);
-                ini.SetValue(InISections[2], it->pItem, val3);
-            }
-            // back to id and fuelid
-            auto id = static_cast<uint32_t>(std::strtoul(val1, nullptr, 16));
-            auto id_str = static_cast<std::string>(val1);
-            auto fuelid = static_cast<uint32_t>(std::strtoul(val2, nullptr, 16));
-            auto fuelid_str = static_cast<std::string>(val2);
-            // Our job is easy if the user wants to force editor ids
-            if (force_editor_id && po3installed) lightSources.emplace_back(0, id_str, duration, 0, fuelid_str);
-            // if both formids are valid hex, use them
-            else if (Utilities::isValidHexWithLength7or8(val1) && Utilities::isValidHexWithLength7or8(val2))
-                lightSources.emplace_back(id, "", duration, fuelid, "");
-            // one of them is not formid so if powerofthree's Tweaks is not installed we have problem
-            else if (!po3installed) {
-                MsgBoxesNotifs::Windows::Po3ErrMsg();
-                return lightSources;
-            }
-            // below editor id is allowed
-            // if the source is hex, fuel isnt vice versa
-            else if (Utilities::isValidHexWithLength7or8(val1))
-                lightSources.emplace_back(id, "", duration, 0, fuelid_str);
-            else if (Utilities::isValidHexWithLength7or8(val2))
-                lightSources.emplace_back(0, id_str, duration, fuelid, "");
-            // both are not hex,
-            else
-                lightSources.emplace_back(0, id_str, duration, 0, fuelid_str);
-
-            ini.SetValue(InISections[0], it->pItem, val1);
-            ini.SetValue(InISections[1], it->pItem, val2);
-            logger::info("Loaded source: {} with duration: {} and fuel: {}", val1, duration, val2);
-        }
-    }
-
+    LoadSources(ini, Utilities::path, lightSources, origins);
     ini.SaveFile(Utilities::path);
+
+    constexpr auto sources_folder = L"Data/SKSE/Plugins/FuelableFramework";
+    std::error_code error;
+    if (std::filesystem::exists(sources_folder, error)) {
+        std::vector<std::filesystem::path> files;
+        for (std::filesystem::recursive_directory_iterator it(sources_folder, error), end;
+             !error && it != end; it.increment(error)) {
+            const bool regular = it->is_regular_file(error);
+            if (error) break;
+            if (regular && _wcsicmp(it->path().extension().c_str(), L".ini") == 0) {
+                files.push_back(it->path());
+            }
+        }
+        if (error) logger::error("Failed to read configuration folder: {}", error.message());
+        std::ranges::sort(files);
+        for (const auto& file : files) {
+            CSimpleIniA source_ini;
+            source_ini.SetUnicode();
+            if (source_ini.LoadFile(file.c_str()) < 0) {
+                logger::error("Failed to load configuration: {}", file.string());
+                continue;
+            }
+            LoadSources(source_ini, file, lightSources, origins);
+        }
+    } else if (error) {
+        logger::error("Failed to read configuration folder: {}", error.message());
+    }
 
     return lightSources;
 }

@@ -8,4 +8,5 @@ set(headers ${headers}
 	include/Hooks.h
 	include/CustomObjects.h
 	include/MCP.h
+	include/Integrations.h
 )
