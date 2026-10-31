@@ -33,6 +33,8 @@ namespace Utilities{
     float Round(float number, int decimalPlaces);
     int Round2Int(float number);
 
+    std::string FormatDuration(float hours);
+    std::uint32_t ParseRGBColor(std::string_view text, std::uint32_t fallback);
     std::vector<std::uint64_t> ParseHandshakeKeys(std::string_view text);
     std::string DecodeTypeCode(std::uint32_t typeCode);
 

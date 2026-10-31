@@ -150,7 +150,7 @@ void LightSourceManager::NoFuel() {
     for (auto& source : sources) {
         if (source.formid != exhausted->formid) continue;
         requirements.push_back(source.GetFuelName());
-        if (HasFuel(&source) || (source.options.auto_refuel && Refuel(source))) {
+        if (HasFuel(&source) || (source.options->auto_refuel && Refuel(source))) {
             source.remaining += overrun;
             current_source = &source;
             UnPauseBurn();

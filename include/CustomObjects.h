@@ -41,7 +41,12 @@ struct SourceOptions {
     bool auto_refuel = true;
     bool lorebox_enabled = true;
     bool skyprompt_enabled = true;
-    std::string lorebox_text = "Remaining: {remaining}. Requires: {requirements}.";
+    std::string lorebox_title = "Fuelable Framework";
+    std::string lorebox_summary = "Remaining: {total_remaining}";
+    std::string lorebox_text = "- {requirements} (+{duration})";
+    std::uint32_t lorebox_title_color = 0xA86CCD;
+    std::uint32_t lorebox_text_color = 0xE8EAED;
+    std::uint32_t lorebox_option_color = 0xFFCC80;
     std::string prompt_text = "Refuel ({requirements})";
     std::vector<std::uint64_t> compatible_keys;
 };
@@ -63,14 +68,14 @@ struct LightSource {
     float duration;
     RE::FormID formid;
     RE::FormID fuel;
-    SourceOptions options;
+    std::shared_ptr<const SourceOptions> options;
     FuelCost cost;
     RE::TESBoundObject* object = nullptr;
 
     bool init_failed=false;
 
-    LightSource(RE::FormID id, float duration, RE::FormID fuelid, const SourceOptions& source_options = {})
-        : duration(duration), formid(id), fuel(fuelid), options(source_options),
+    LightSource(RE::FormID id, float duration, RE::FormID fuelid, std::shared_ptr<const SourceOptions> source_options)
+        : duration(duration), formid(id), fuel(fuelid), options(std::move(source_options)),
           object(FormReader::GetFormByID<RE::TESBoundObject>(id)) {
         init_failed = !object || !cost.Initialize(FormReader::GetFormByID(fuel));
         if (init_failed) {

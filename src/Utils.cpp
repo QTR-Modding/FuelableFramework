@@ -11,6 +11,40 @@ int Utilities::Round2Int(float number) {
     return rounded_number;
 }
 
+std::string Utilities::FormatDuration(float hours) {
+    constexpr double minutes_per_hour = 60;
+    constexpr double hours_per_day = 24;
+    constexpr double minutes_per_day = minutes_per_hour * hours_per_day;
+    const auto minutes = std::round(std::max(0.0, static_cast<double>(hours)) * minutes_per_hour);
+    const auto days = std::floor(minutes / minutes_per_day);
+    const auto remainder = std::fmod(minutes, minutes_per_day);
+    const auto whole_hours = std::floor(remainder / minutes_per_hour);
+    const auto whole_minutes = std::fmod(remainder, minutes_per_hour);
+    std::string text;
+    if (days > 0) text = std::format("{:.0f}d", days);
+    if (whole_hours > 0) {
+        if (!text.empty()) text += " ";
+        text += std::format("{:.0f}h", whole_hours);
+    }
+    if (whole_minutes > 0 || text.empty()) {
+        if (!text.empty()) text += " ";
+        text += std::format("{:.0f}m", whole_minutes);
+    }
+    return text;
+}
+
+std::uint32_t Utilities::ParseRGBColor(std::string_view text, std::uint32_t fallback) {
+    if (text.empty()) return fallback;
+    if (text.starts_with('#')) text.remove_prefix(1);
+    else if (text.starts_with("0x") || text.starts_with("0X")) text.remove_prefix(2);
+    constexpr std::uint32_t rgb_mask = 0xFFFFFF;
+    std::uint32_t value{};
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value, 16);
+    if (error == std::errc{} && end == text.data() + text.size() && value <= rgb_mask) return value;
+    logger::warn("Invalid LoreBox RGB color: {}", text);
+    return fallback;
+}
+
 std::vector<std::uint64_t> Utilities::ParseHandshakeKeys(std::string_view text) {
     std::vector<std::uint64_t> keys;
     while (!text.empty()) {

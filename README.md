@@ -48,7 +48,12 @@ AutoRefuel = false
 
 [LoreBox]
 Enabled = true
-Text = Charge remaining: {remaining}. Recharge requires {requirements}.
+Title = Recharge
+Summary = Stored charge: {total_remaining}
+Text = - {requirements} (+{duration})
+TitleColor = A86CCD
+TextColor = E8EAED
+OptionColor = FFCC80
 
 [SkyPrompt]
 Enabled = true
@@ -61,7 +66,9 @@ LoreBox descriptions require both LoreBox and Dynamic Translation Framework to b
 
 LoreBox text is available for keyword-capable items, including wearable armor and jewelry, in the player's inventory. Vanilla torches are `TESObjectLIGH` records without a keyword component, so they support fuel costs and SkyPrompt actions but cannot use this LoreBox integration.
 
-Both strings accept `{item}`, `{requirements}`, `{remaining}`, and `{duration}`. The time values include in-game hours; requirements include ingredient names and quantities. Omitted options use the defaults `Remaining: {remaining}. Requires: {requirements}.` and `Refuel ({requirements})`. An empty string hides that description or action.
+LoreBox groups each INI's refill options under one title and summary. The example displays a purple "Recharge" heading, the total stored charge once, and a gold line for each alternative cost and the time it adds. `Title`, `Summary`, and `Text` are customizable; an empty value hides that part. The default title is `Fuelable Framework`, the summary is `Remaining: {total_remaining}`, and each option uses `- {requirements} (+{duration})`. Colors are six-digit RGB hexadecimal values.
+
+LoreBox strings and SkyPrompt `Text` accept `{item}`, `{requirements}`, `{remaining}`, and `{duration}`. Requirements include ingredient names and quantities. Times use compact in-game days, hours, and minutes, such as `3h 20m`. `{remaining}` is the stored time for that fuel option; LoreBox also accepts `{total_remaining}` for the sum of this INI's options for the selected item. In the shared title and summary, option-specific tokens use the first fuel option. SkyPrompt defaults to `Refuel ({requirements})`; an empty `Text` hides the action.
 
 ## SkyPrompt compatibility
 

@@ -24,11 +24,12 @@ namespace {
         }
     }
 
-    std::string FormatText(std::string text, LightSource& source, float remaining) {
-        Replace(text, "{remaining}", std::format("{:.2f} h", remaining));
+    std::string FormatText(std::string text, LightSource& source, float remaining, float total_remaining = 0) {
+        Replace(text, "{remaining}", Utilities::FormatDuration(remaining));
+        Replace(text, "{total_remaining}", Utilities::FormatDuration(total_remaining));
         Replace(text, "{requirements}", source.GetFuelName());
         Replace(text, "{item}", source.GetName());
-        Replace(text, "{duration}", std::format("{:.2f} h", source.duration));
+        Replace(text, "{duration}", Utilities::FormatDuration(source.duration));
         return text;
     }
 
@@ -58,7 +59,7 @@ namespace {
                 auto* keyword = RE::BGSKeyword::CreateKeyword(std::string(lorebox_key));
                 if (keyword) {
                     for (auto& source : manager_->sources) {
-                        if (!source.options.lorebox_enabled) continue;
+                        if (!source.options->lorebox_enabled) continue;
                         if (auto* keywords = source.GetBoundObject()->As<RE::BGSKeywordForm>()) {
                             if (!keywords->HasKeyword(keyword)) {
                                 static_cast<void>(keywords->AddKeyword(keyword));
@@ -72,15 +73,15 @@ namespace {
 
             if (!GetModuleHandleW(L"SkyPrompt.dll")) return;
             const auto uses_prompts = std::ranges::any_of(manager_->sources, [](const auto& source) {
-                return source.options.skyprompt_enabled;
+                return source.options->skyprompt_enabled;
             });
             if (!uses_prompts) return;
             client_ = SkyPromptAPI::RequestClientID();
             if (!client_) return;
             std::set<SkyPromptAPI::HandshakeKey> requested;
             for (const auto& source : manager_->sources) {
-                if (!source.options.skyprompt_enabled) continue;
-                for (const auto peer : source.options.compatible_keys) {
+                if (!source.options->skyprompt_enabled) continue;
+                for (const auto peer : source.options->compatible_keys) {
                     if (requested.insert(peer).second && !SkyPromptAPI::RequestHandshake(client_, handshake_key, peer)) {
                         logger::warn("SkyPrompt declined handshake request for {:016X}", peer);
                     }
@@ -106,7 +107,7 @@ namespace {
                 const auto item = SelectedItem();
                 if (!item || item->GetFormID() != object) return;
                 auto* source = integration.manager_->FindSource(object, fuel);
-                if (source && source->options.skyprompt_enabled) {
+                if (source && source->options->skyprompt_enabled) {
                     integration.manager_->Refuel(*source);
                 }
             });
@@ -125,18 +126,59 @@ namespace {
             if (!lorebox_available_ || !manager_) return {};
             const auto item = SelectedItem();
             if (!item) return {};
-            std::string text;
+            std::vector<LoreGroup> groups;
             for (auto& source : manager_->sources) {
-                if (source.formid != item->GetFormID() || !source.options.lorebox_enabled) continue;
-                const auto line = FormatText(source.options.lorebox_text, source, manager_->GetRemaining(&source));
-                if (line.empty()) continue;
-                if (!text.empty()) text += "<br>";
-                text += line;
+                if (source.formid != item->GetFormID() || !source.options->lorebox_enabled) continue;
+                auto group = std::ranges::find(groups, source.options.get(), &LoreGroup::options);
+                if (group == groups.end()) {
+                    groups.push_back({source.options.get()});
+                    group = std::prev(groups.end());
+                }
+                const auto remaining = manager_->GetRemaining(&source);
+                group->sources.emplace_back(&source, remaining);
+                group->remaining += remaining;
+            }
+            std::string text;
+            for (const auto& group : groups) {
+                const auto block = FormatLoreBlock(group);
+                if (block.empty()) continue;
+                if (!text.empty()) text += "<br><br>";
+                text += block;
             }
             return Widen(text);
         }
 
     private:
+        struct LoreGroup {
+            const SourceOptions* options;
+            std::vector<std::pair<LightSource*, float>> sources;
+            float remaining = 0;
+        };
+
+        static std::string FormatLoreBlock(const LoreGroup& group) {
+            const auto& options = *group.options;
+            const auto& [first, remaining] = group.sources.front();
+            const auto title = FormatText(options.lorebox_title, *first, remaining, group.remaining);
+            const auto summary = FormatText(options.lorebox_summary, *first, remaining, group.remaining);
+            std::string text;
+            if (!title.empty()) {
+                text = std::format("<b><font color=\"#{:06X}\">{}</font></b>", options.lorebox_title_color, title);
+            }
+            if (!summary.empty()) {
+                if (!text.empty()) text += "<br>";
+                text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_text_color, summary);
+            }
+            bool first_row = true;
+            for (const auto& [source, stored] : group.sources) {
+                const auto row = FormatText(options.lorebox_text, *source, stored, group.remaining);
+                if (row.empty()) continue;
+                if (!text.empty()) text += first_row ? "<br><br>" : "<br>";
+                first_row = false;
+                text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_option_color, row);
+            }
+            return text;
+        }
+
         static void AdvanceMovie(RE::InventoryMenu* menu, float interval, std::uint32_t current_time) {
             advance_movie_(menu, interval, current_time);
             GetSingleton().Refresh();
@@ -149,37 +191,41 @@ namespace {
 
         void Refresh() {
             const auto item = SelectedItem();
-            if (item == selected_ && !dynamic_text_) return;
+            const auto preview = RE::Inventory3DManager::GetSingleton()->tempRef;
+            const RE::FormID preview_id = preview ? preview->GetFormID() : 0;
+            if (item == selected_ && preview_id == preview_ref_ && !dynamic_text_) return;
             if (item != selected_) {
                 indices_.clear();
                 dynamic_text_ = false;
                 if (item) {
                     for (std::size_t index = 0; index < manager_->sources.size(); ++index) {
                         const auto& source = manager_->sources[index];
-                        if (source.formid != item->GetFormID() || !source.options.skyprompt_enabled) continue;
+                        if (source.formid != item->GetFormID() || !source.options->skyprompt_enabled) continue;
                         if (index > std::numeric_limits<SkyPromptAPI::ActionID>::max()) {
                             logger::error("SkyPrompt source index exceeds ActionID range: {}", index);
                             break;
                         }
                         indices_.push_back(index);
-                        dynamic_text_ |= source.options.prompt_text.find("{remaining}") != std::string::npos;
+                        dynamic_text_ |= source.options->prompt_text.find("{remaining}") != std::string::npos;
                     }
                 }
             }
             std::vector<std::string> text;
             for (const auto index : indices_) {
                 auto& source = manager_->sources[index];
-                auto label = FormatText(source.options.prompt_text, source, manager_->GetRemaining(&source));
+                auto label = FormatText(source.options->prompt_text, source, manager_->GetRemaining(&source));
                 text.push_back(std::move(label));
             }
-            if (item == selected_ && text == texts_) return;
+            if (item == selected_ && preview_id == preview_ref_ && text == texts_) return;
             Hide();
             selected_ = item;
+            preview_ref_ = preview_id;
             texts_ = std::move(text);
             prompts_.clear();
             for (std::size_t index = 0; index < texts_.size(); ++index) {
                 if (!texts_[index].empty()) {
-                    prompts_.emplace_back(texts_[index], 0, static_cast<SkyPromptAPI::ActionID>(indices_[index]));
+                    prompts_.emplace_back(texts_[index], 0, static_cast<SkyPromptAPI::ActionID>(indices_[index]),
+                                          SkyPromptAPI::PromptType::kSinglePress, preview_id);
                 }
             }
             if (!prompts_.empty()) {
@@ -192,6 +238,7 @@ namespace {
         bool lorebox_available_ = false;
         SkyPromptAPI::ClientID client_ = 0;
         RE::TESBoundObject* selected_ = nullptr;
+        RE::FormID preview_ref_ = 0;
         bool submitted_ = false;
         bool dynamic_text_ = false;
         std::vector<std::size_t> indices_;

@@ -36,14 +36,22 @@ namespace {
         }
     }
 
-    SourceOptions LoadSourceOptions(const CSimpleIniA& ini) {
-        SourceOptions options;
-        options.auto_refuel = ini.GetBoolValue("Refueling", "AutoRefuel", options.auto_refuel);
-        options.lorebox_enabled = ini.GetBoolValue("LoreBox", "Enabled", options.lorebox_enabled);
-        options.lorebox_text = ini.GetValue("LoreBox", "Text", options.lorebox_text.c_str());
-        options.skyprompt_enabled = ini.GetBoolValue("SkyPrompt", "Enabled", options.skyprompt_enabled);
-        options.prompt_text = ini.GetValue("SkyPrompt", "Text", options.prompt_text.c_str());
-        options.compatible_keys = Utilities::ParseHandshakeKeys(ini.GetValue("SkyPrompt", "CompatibleKeys", ""));
+    std::shared_ptr<const SourceOptions> LoadSourceOptions(const CSimpleIniA& ini) {
+        auto options = std::make_shared<SourceOptions>();
+        options->auto_refuel = ini.GetBoolValue("Refueling", "AutoRefuel", options->auto_refuel);
+        options->lorebox_enabled = ini.GetBoolValue("LoreBox", "Enabled", options->lorebox_enabled);
+        options->lorebox_text = ini.GetValue("LoreBox", "Text", options->lorebox_text.c_str());
+        options->lorebox_title = ini.GetValue("LoreBox", "Title", options->lorebox_title.c_str());
+        options->lorebox_summary = ini.GetValue("LoreBox", "Summary", options->lorebox_summary.c_str());
+        options->lorebox_title_color = Utilities::ParseRGBColor(
+            ini.GetValue("LoreBox", "TitleColor", ""), options->lorebox_title_color);
+        options->lorebox_text_color = Utilities::ParseRGBColor(
+            ini.GetValue("LoreBox", "TextColor", ""), options->lorebox_text_color);
+        options->lorebox_option_color = Utilities::ParseRGBColor(
+            ini.GetValue("LoreBox", "OptionColor", ""), options->lorebox_option_color);
+        options->skyprompt_enabled = ini.GetBoolValue("SkyPrompt", "Enabled", options->skyprompt_enabled);
+        options->prompt_text = ini.GetValue("SkyPrompt", "Text", options->prompt_text.c_str());
+        options->compatible_keys = Utilities::ParseHandshakeKeys(ini.GetValue("SkyPrompt", "CompatibleKeys", ""));
         return options;
     }
 
