@@ -47,7 +47,7 @@ struct SourceOptions {
     std::uint32_t lorebox_title_color = 0xA86CCD;
     std::uint32_t lorebox_text_color = 0xE8EAED;
     std::uint32_t lorebox_option_color = 0xFFCC80;
-    std::string prompt_text = "Refuel ({requirements})";
+    std::string prompt_text = "Refuel";
     std::vector<std::uint64_t> compatible_keys;
 };
 

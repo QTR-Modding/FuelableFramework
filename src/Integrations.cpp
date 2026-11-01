@@ -136,15 +136,22 @@ namespace {
             const auto item = SelectedItem();
             if (!item) return {};
             std::vector<LoreGroup> groups;
-            for (auto& source : manager_->sources) {
-                if (source.formid != item->GetFormID() || !source.options->lorebox_enabled) continue;
+            std::size_t prompt_number = 0;
+            for (std::size_t index = 0; index < manager_->sources.size(); ++index) {
+                auto& source = manager_->sources[index];
+                if (source.formid != item->GetFormID()) continue;
+                const auto remaining = manager_->GetRemaining(&source);
+                const auto number = index <= std::numeric_limits<SkyPromptAPI::ActionID>::max() &&
+                                    source.options->skyprompt_enabled &&
+                                    !FormatText(source.options->prompt_text, source, remaining).empty()
+                    ? ++prompt_number : 0;
+                if (!source.options->lorebox_enabled) continue;
                 auto group = std::ranges::find(groups, source.options.get(), &LoreGroup::options);
                 if (group == groups.end()) {
                     groups.push_back({source.options.get()});
                     group = std::prev(groups.end());
                 }
-                const auto remaining = manager_->GetRemaining(&source);
-                group->sources.emplace_back(&source, remaining);
+                group->sources.push_back({&source, remaining, number});
                 group->remaining += remaining;
             }
             std::string text;
@@ -158,17 +165,23 @@ namespace {
         }
 
     private:
+        struct LoreRow {
+            LightSource* source;
+            float remaining;
+            std::size_t number;
+        };
+
         struct LoreGroup {
             const SourceOptions* options;
-            std::vector<std::pair<LightSource*, float>> sources;
+            std::vector<LoreRow> sources;
             float remaining = 0;
         };
 
         static std::string FormatLoreBlock(const LoreGroup& group) {
             const auto& options = *group.options;
-            const auto& [first, remaining] = group.sources.front();
-            const auto title = FormatText(options.lorebox_title, *first, remaining, group.remaining);
-            const auto summary = FormatText(options.lorebox_summary, *first, remaining, group.remaining);
+            const auto& first = group.sources.front();
+            const auto title = FormatText(options.lorebox_title, *first.source, first.remaining, group.remaining);
+            const auto summary = FormatText(options.lorebox_summary, *first.source, first.remaining, group.remaining);
             std::string text;
             if (!title.empty()) {
                 text = std::format("<b><font color=\"#{:06X}\">{}</font></b>", options.lorebox_title_color, title);
@@ -177,11 +190,12 @@ namespace {
                 if (!text.empty()) text += "<br>";
                 text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_text_color, summary);
             }
-            for (const auto& [source, stored] : group.sources) {
-                const auto row = FormatText(options.lorebox_text, *source, stored, group.remaining);
+            for (const auto& entry : group.sources) {
+                auto row = FormatText(options.lorebox_text, *entry.source, entry.remaining, group.remaining);
                 if (row.empty()) continue;
+                if (entry.number) row.insert(0, std::format("{}. ", entry.number));
                 if (!text.empty()) text += "<br>";
-                text += std::format("<font color=\"#{:06X}\">\u2022 {}</font>", options.lorebox_option_color, row);
+                text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_option_color, row);
             }
             return text;
         }

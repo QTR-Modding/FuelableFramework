@@ -57,7 +57,7 @@ OptionColor = FFCC80
 
 [SkyPrompt]
 Enabled = true
-Text = Recharge ({requirements})
+Text = Recharge
 ```
 
 `AutoRefuel` defaults to true. With false, an exhausted item is unequipped until the player refills it. With SkyPrompt loaded, highlight the item in the player's inventory and hold its action key. Each configured fuel offers an action; completing the hold consumes one complete cost and adds the configured duration without discarding stored time. Release the key before holding again for another refill. Added time survives saving and loading.
@@ -66,11 +66,11 @@ LoreBox descriptions require both LoreBox and Dynamic Translation Framework to b
 
 LoreBox text is available for keyword-capable items, including wearable armor and jewelry, in the player's inventory. Vanilla torches are `TESObjectLIGH` records without a keyword component, so they support fuel costs and SkyPrompt actions but cannot use this LoreBox integration.
 
-LoreBox groups each INI's refill options under one title and summary. The example displays a purple "Recharge" heading, the total stored charge once, and a gold bullet for each alternative cost and the time it adds. `Title`, `Summary`, and `Text` are customizable; an empty value hides that part. The default title is `Fuelable Framework`, the summary is `Remaining: {total_remaining}`, and each option uses `{requirements} (+{duration})`. Colors are six-digit RGB hexadecimal values. The displayed charge refreshes after a manual refill.
+LoreBox groups each INI's refill options under one title and summary. The example displays a purple "Recharge" heading, the total stored charge once, and a gold row for each alternative cost and the time it adds. Rows with SkyPrompt actions are numbered in the same order as its stack indicator, so `1.` matches `1/2` and `2.` matches `2/2`. `Title`, `Summary`, and `Text` are customizable; an empty value hides that part. The default title is `Fuelable Framework`, the summary is `Remaining: {total_remaining}`, and each option uses `{requirements} (+{duration})`. Colors are six-digit RGB hexadecimal values. The displayed charge refreshes after a manual refill.
 
-LoreBox strings and SkyPrompt `Text` accept `{item}`, `{requirements}`, `{remaining}`, and `{duration}`. Requirements include ingredient names and quantities. Times use compact in-game days, hours, and minutes, such as `3h 20m`. `{remaining}` is the stored time for that fuel option; LoreBox also accepts `{total_remaining}` for the sum of this INI's options for the selected item. In the shared title and summary, option-specific tokens use the first fuel option. SkyPrompt defaults to `Refuel ({requirements})`; an empty `Text` hides the action.
+LoreBox strings and SkyPrompt `Text` accept `{item}`, `{requirements}`, `{remaining}`, and `{duration}`. Requirements include ingredient names and quantities. Times use compact in-game days, hours, and minutes, such as `3h 20m`. `{remaining}` is the stored time for that fuel option; LoreBox also accepts `{total_remaining}` for the sum of this INI's options for the selected item. In the shared title and summary, option-specific tokens use the first fuel option. SkyPrompt defaults to `Refuel`; an empty `Text` hides the action.
 
-Fuelable Framework uses its own SkyPrompt theme, with inventory actions growing inward from the item preview. Edit it under SkyPrompt's Theme settings and use Save Theme to persist changes. Keybinds remain shared with SkyPrompt.
+Fuelable Framework uses its own SkyPrompt theme to position its inventory actions. Edit it under SkyPrompt's Theme settings and use Save Theme to persist changes. Keybinds remain shared with SkyPrompt.
 
 ## SkyPrompt compatibility
 
