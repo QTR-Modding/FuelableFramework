@@ -72,24 +72,7 @@ namespace {
             }
 
             if (!GetModuleHandleW(L"SkyPrompt.dll")) return;
-            const auto uses_prompts = std::ranges::any_of(manager_->sources, [](const auto& source) {
-                return source.options->skyprompt_enabled;
-            });
-            if (!uses_prompts) return;
-            client_ = SkyPromptAPI::RequestClientID();
-            if (!client_) return;
-            if (!SkyPromptAPI::RequestTheme(client_, "FuelableFramework")) {
-                logger::warn("SkyPrompt could not load the FuelableFramework theme");
-            }
-            std::set<SkyPromptAPI::HandshakeKey> requested;
-            for (const auto& source : manager_->sources) {
-                if (!source.options->skyprompt_enabled) continue;
-                for (const auto peer : source.options->compatible_keys) {
-                    if (requested.insert(peer).second && !SkyPromptAPI::RequestHandshake(client_, handshake_key, peer)) {
-                        logger::warn("SkyPrompt declined handshake request for {:016X}", peer);
-                    }
-                }
-            }
+            if (!RegisterPromptClients()) return;
             RE::UI::GetSingleton()->AddEventSink<RE::MenuOpenCloseEvent>(this);
             REL::Relocation<std::uintptr_t> table{RE::VTABLE_InventoryMenu[0]};
             advance_movie_ = table.write_vfunc(advance_movie_slot, AdvanceMovie);
@@ -165,6 +148,36 @@ namespace {
         }
 
     private:
+        bool RegisterPromptClients() {
+            std::map<RE::FormID, std::vector<SkyPromptAPI::HandshakeKey>> item_keys;
+            for (const auto& source : manager_->sources) {
+                if (!source.options->skyprompt_enabled) continue;
+                auto& keys = item_keys[source.formid];
+                keys.insert(keys.end(), source.options->compatible_keys.begin(), source.options->compatible_keys.end());
+            }
+
+            std::map<std::vector<SkyPromptAPI::HandshakeKey>, SkyPromptAPI::ClientID> clients;
+            for (auto& [item, keys] : item_keys) {
+                std::ranges::sort(keys);
+                keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
+                const auto [client, inserted] = clients.try_emplace(keys, 0);
+                if (inserted) {
+                    client->second = SkyPromptAPI::RequestClientID();
+                    if (!client->second) return false;
+                    if (!SkyPromptAPI::RequestTheme(client->second, "FuelableFramework")) {
+                        logger::warn("SkyPrompt could not load the FuelableFramework theme");
+                    }
+                    for (const auto peer : keys) {
+                        if (!SkyPromptAPI::RequestHandshake(client->second, handshake_key, peer)) {
+                            logger::warn("SkyPrompt declined handshake request for {:016X}", peer);
+                        }
+                    }
+                }
+                item_clients_.emplace(item, client->second);
+            }
+            return !item_clients_.empty();
+        }
+
         struct LoreRow {
             LightSource* source;
             float remaining;
@@ -243,6 +256,8 @@ namespace {
             }
             if (item == selected_ && preview_id == preview_ref_ && text == texts_) return;
             Hide();
+            const auto client = item ? item_clients_.find(item->GetFormID()) : item_clients_.end();
+            client_ = client != item_clients_.end() ? client->second : 0;
             selected_ = item;
             preview_ref_ = preview_id;
             texts_ = std::move(text);
@@ -261,6 +276,7 @@ namespace {
 
         LightSourceManager* manager_ = nullptr;
         bool lorebox_available_ = false;
+        std::map<RE::FormID, SkyPromptAPI::ClientID> item_clients_;
         SkyPromptAPI::ClientID client_ = 0;
         RE::TESBoundObject* selected_ = nullptr;
         RE::FormID preview_ref_ = 0;
