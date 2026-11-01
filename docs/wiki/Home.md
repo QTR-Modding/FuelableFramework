@@ -34,16 +34,11 @@ Both files load automatically. Each INI supplies the settings for the items it d
 
 ## Form groups
 
-A form group is a named list of items or recipes. Create `Data/SKSE/Plugins/FuelableFramework/formGroups/MyWearables.txt` with one form identifier per line:
+See the [QTR Utils Form Groups guide](https://github.com/QTR-Modding/CLibUtilsQTR/wiki/Form-Groups) for creating groups and the supported identifiers.
 
-```text
-0x12E49~Skyrim.esm
-0x12E4D~Skyrim.esm
-```
+For Fuelable Framework, put group files in `Data/SKSE/Plugins/FuelableFramework/formGroups/`. Use the filename without `.txt` in `[Light Sources]` or `[Fuel Sources]`, for example `src1 = MyWearables`.
 
-These are the iron cuirass and iron helmet. Set `src1 = MyWearables` in `[Light Sources]` to apply that entry to both items. The filename without `.txt` is the group name, using QTR Utils' standard loader. Groups contain identifiers, not other group names; duplicate forms collapse and empty groups produce no entries.
-
-Groups also work in `[Fuel Sources]`. Each member is an alternative fuel or recipe, so a source group and fuel group produce every item/fuel combination. Group members are considered in FormID order. A COBJ defines ingredients consumed together; a fuel group defines alternatives. Group names take precedence over individual identifiers, so choose distinct names.
+In `[Fuel Sources]`, group members are alternative fuels or recipes. Each recipe consumes its own complete ingredient set.
 
 ## Recipe costs
 
