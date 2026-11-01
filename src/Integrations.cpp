@@ -190,7 +190,7 @@ namespace {
                 if (!text.empty()) text += "<br>";
                 text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_text_color, summary);
             }
-            constexpr auto option_font_size = 16;
+            constexpr auto option_font_size = 14;
             for (const auto& entry : group.sources) {
                 auto row = FormatText(options.lorebox_text, *entry.source, entry.remaining, group.remaining);
                 if (row.empty()) continue;
