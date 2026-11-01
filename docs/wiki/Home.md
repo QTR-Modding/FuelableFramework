@@ -121,4 +121,4 @@ SkyPrompt handshakes allow participating mods' prompts to appear together. Fuela
 
 Leave `CompatibleKeys` empty for normal use. To show Fuelable Framework's prompts alongside another mod's prompts, enter that mod's hexadecimal handshake key here. Use the key supplied by its author; separate multiple keys with commas. The other mod must also request compatibility with Fuelable Framework's key above. Adding a key on only one side does not establish compatibility.
 
-A handshake configured in one INI applies to all Fuelable Framework prompts.
+`CompatibleKeys` applies to the items defined in that INI. For example, adding Containerize's key to `Lanterns.ini` allows Containerize's prompts alongside those lanterns' refill prompts. Items defined only in another INI keep that INI's compatibility settings. If the same item has fuel options in multiple INIs, it uses the keys from all of those INIs with SkyPrompt enabled, and its fuel options remain in one prompt stack.
