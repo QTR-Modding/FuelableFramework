@@ -190,12 +190,14 @@ namespace {
                 if (!text.empty()) text += "<br>";
                 text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_text_color, summary);
             }
+            constexpr auto option_font_size = 16;
             for (const auto& entry : group.sources) {
                 auto row = FormatText(options.lorebox_text, *entry.source, entry.remaining, group.remaining);
                 if (row.empty()) continue;
                 if (entry.number) row.insert(0, std::format("{}. ", entry.number));
                 if (!text.empty()) text += "<br>";
-                text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_option_color, row);
+                text += std::format("<font color=\"#{:06X}\" size=\"{}\">{}</font>",
+                                    options.lorebox_option_color, option_font_size, row);
             }
             return text;
         }
