@@ -1,6 +1,6 @@
 # Fuelable Framework
 
-Create `Data/SKSE/Plugins/FuelableFramework/MyMod.ini` with:
+Create `Data/SKSE/Plugins/FuelableFramework/MyMod/Lights.ini` with:
 
 ```ini
 [Light Sources]
@@ -21,18 +21,24 @@ The original `Data/SKSE/Plugins/FuelableFramework.ini` continues to work. Additi
 
 The legacy `[Other Stuff]` notification settings and `[QuickLight Support]` settings remain in the original INI.
 
-## Form groups
-
-A form group is a named list of items or recipes. Create `Data/SKSE/Plugins/FuelableFramework/formGroups/MyWearables.txt` with one form identifier per line:
+The supplied `FuelableFramework/empty_mod/Example.ini` is inactive. Copy the `empty_mod` folder, rename it for your mod, and edit its INI to define your items and fuels. You can put several INIs in your mod's folder, for example:
 
 ```text
-0x12E49~Skyrim.esm
-0x12E4D~Skyrim.esm
+SKSE/Plugins/FuelableFramework/
+  MyMod/
+    Lights.ini
+    Jewelry.ini
 ```
 
-These are the iron cuirass and iron helmet. Set `src1 = MyWearables` in `[Light Sources]` to apply that entry to both items. The filename without `.txt` is the group name, using QTR Utils' standard loader. Groups contain identifiers, not other group names; duplicate forms collapse and empty groups produce no entries.
+Both files load automatically. Each INI supplies the settings for the items it defines.
 
-Groups also work in `[Fuel Sources]`. Each member is an alternative fuel or recipe, so a source group and fuel group produce every item/fuel combination. Group members are considered in FormID order. A COBJ defines ingredients consumed together; a fuel group defines alternatives. Group names take precedence over individual identifiers, so choose distinct names.
+## Form groups
+
+See the [QTR Utils Form Groups guide](https://github.com/QTR-Modding/CLibUtilsQTR/wiki/Form-Groups) for creating groups and the supported identifiers.
+
+For Fuelable Framework, put group files in `Data/SKSE/Plugins/FuelableFramework/formGroups/`. Use the filename without `.txt` in `[Light Sources]` or `[Fuel Sources]`, for example `src1 = MyWearables`.
+
+In `[Fuel Sources]`, group members are alternative fuels or recipes. Each recipe consumes its own complete ingredient set.
 
 ## Recipe costs
 
