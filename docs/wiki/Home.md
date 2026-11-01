@@ -68,9 +68,50 @@ LoreBox descriptions require both LoreBox and Dynamic Translation Framework to b
 
 LoreBox text is available for keyword-capable items, including wearable armor and jewelry, in the player's inventory. Vanilla torches are `TESObjectLIGH` records without a keyword component, so they support fuel costs and SkyPrompt actions but cannot use this LoreBox integration.
 
-LoreBox groups each INI's refill options under one title and summary. The example displays a purple "Recharge" heading, the total stored charge once, and a gold row for each alternative cost and the time it adds. Rows with SkyPrompt actions are numbered in the same order as its stack indicator, so `1.` matches `1/2` and `2.` matches `2/2`. `Title`, `Summary`, and `Text` are customizable; an empty value hides that part. The default title is `Fuelable Framework`, the summary is `Remaining: {total_remaining}`, and each option uses `{requirements} (+{duration})`. Colors are six-digit RGB hexadecimal values. The displayed charge refreshes after a manual refill.
+### LoreBox text
 
-LoreBox strings and SkyPrompt `Text` accept `{item}`, `{requirements}`, `{remaining}`, and `{duration}`. Requirements include ingredient names and quantities. Times use compact in-game days, hours, and minutes, such as `3h 20m`. `{remaining}` is the stored time for that fuel option; LoreBox also accepts `{total_remaining}` for the sum of this INI's options for the selected item. In the shared title and summary, option-specific tokens use the first fuel option. SkyPrompt defaults to `Refuel`; an empty `Text` hides the action.
+For a wearable lantern configured to consume one Dwarven Oil for eight in-game hours, these lines set its description:
+
+```ini
+[LoreBox]
+Title = Recharge
+Summary = Stored charge: {total_remaining}
+Text = {requirements} (+{duration})
+```
+
+With 2 hours and 30 minutes stored and its SkyPrompt action enabled, the description reads:
+
+```text
+Recharge
+Stored charge: 2h 30m
+1. Dwarven Oil (1) (+8h)
+```
+
+`Title` is the heading. `Summary` appears once below it and describes the stored time. `Text` creates a row for each alternative fuel configured by this INI. Here, the row says that one Dwarven Oil adds eight hours; it does not say that eight hours remain. The displayed charge refreshes after a manual refill.
+
+The words in braces are **placeholders**: Fuelable Framework replaces them with values for the selected item. The surrounding words, spaces, plus sign, and parentheses appear as written. For example, changing the summary to `Summary = Fuel left: {total_remaining}` produces `Fuel left: 2h 30m` in the same situation. Change the title to `Lantern Fuel` or `Recharge` to suit your mod. An empty `Title`, `Summary`, or `Text` hides that part.
+
+The text comes from your INI and the item's current charge, so no separate file under `Interface/Translations` is needed. Keep the supplied `SKSE/Plugins/DynamicTranslationFramework/FuelableFramework.json`: it registers the description with DTF, which requests the current text from Fuelable Framework's DLL for LoreBox.
+
+Rows are numbered in the same order as SkyPrompt's stack indicator, so `1.` matches `1/2` and `2.` matches `2/2`. Disabling SkyPrompt in the INI or leaving its action text empty makes that INI's rows unnumbered. The earlier color settings give the title a purple color and the fuel rows a gold color; colors are six-digit RGB hexadecimal values.
+
+When omitted, the title defaults to `Fuelable Framework`, the summary to `Remaining: {total_remaining}`, and the fuel rows to `{requirements} (+{duration})`.
+
+### Text placeholders
+
+Use these placeholders in LoreBox's `Title`, `Summary`, and `Text`, or in SkyPrompt's `Text`, except where noted:
+
+| Placeholder | Replaced with | Example |
+| --- | --- | --- |
+| `{item}` | The selected item's name. | `Wearable Lantern` |
+| `{requirements}` | The items and quantities consumed by one refill. A recipe lists its ingredients with commas. | `Dwarven Oil (1)` or `Leather Strips (2), Iron Ingot (3)` |
+| `{duration}` | The in-game time added by one refill with this fuel. | `8h` |
+| `{remaining}` | The time currently stored for this individual fuel option. | `2h 30m` |
+| `{total_remaining}` | The sum of the selected item's stored time across this INI's fuel options. LoreBox only. | `2h 30m` |
+
+With one fuel option, `{remaining}` and `{total_remaining}` are equal. With two options storing one hour each, `{remaining}` is `1h` for each row and `{total_remaining}` is `2h`. In the shared LoreBox title and summary, option-specific placeholders use the first fuel option; use `{total_remaining}` for the combined stored time.
+
+Times use compact in-game days, hours, and minutes, such as `1d 3h 20m`. SkyPrompt's `Text = Recharge` displays the literal label `Recharge`; `Text = Refuel {item}` includes the selected item's name. SkyPrompt defaults to `Refuel`, and an empty `Text` hides its action.
 
 Fuelable Framework uses its own SkyPrompt theme to position its inventory actions. Edit it under SkyPrompt's Theme settings and use Save Theme to persist changes. Keybinds remain shared with SkyPrompt.
 
