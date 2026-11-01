@@ -1,6 +1,6 @@
 # Fuelable Framework
 
-Create `Data/SKSE/Plugins/FuelableFramework/MyMod.ini` with:
+Create `Data/SKSE/Plugins/FuelableFramework/MyMod/Lights.ini` with:
 
 ```ini
 [Light Sources]
@@ -20,6 +20,17 @@ Values can use `0xLocalFormID~PluginName.esp`, a full runtime FormID, or an Edit
 The original `Data/SKSE/Plugins/FuelableFramework.ini` continues to work. Additional INIs are loaded from the `FuelableFramework` folder and its subfolders, in sorted path order after the original file. Each file's keys and options apply to its own entries. A later definition of the same item/fuel pair replaces the earlier definition; different fuels remain alternatives for that item.
 
 The legacy `[Other Stuff]` notification settings and `[QuickLight Support]` settings remain in the original INI.
+
+The supplied `FuelableFramework/empty_mod/Example.ini` is inactive. Copy the `empty_mod` folder, rename it for your mod, and edit its INI to define your items and fuels. You can put several INIs in your mod's folder, for example:
+
+```text
+SKSE/Plugins/FuelableFramework/
+  MyMod/
+    Lights.ini
+    Jewelry.ini
+```
+
+Both files load automatically. Each INI supplies the settings for the items it defines.
 
 ## Form groups
 
