@@ -112,12 +112,12 @@ void UI::Register(LightSourceManager* manager) {
     M = manager;
 
     if (Settings::ql_enabled) {
-        ql_fuel_name = std::string(RE::TESForm::LookupByID(Settings::ql_fuel)->GetName());
+        ql_fuel_name = Settings::ql_cost.requirements;
     }
 
     for (const auto& source : M->sources) {
-        const auto source_name = std::string(RE::TESForm::LookupByID(source.formid)->GetName());
-        const auto fuel_name = std::string(RE::TESForm::LookupByID(source.fuel)->GetName());
+        const auto source_name = std::string(source.GetName());
+        const auto fuel_name = std::string(source.GetFuelName());
         const auto duration_str = std::to_string(source.duration);
         ui_sources.push_back({source_name, fuel_name, duration_str});
 

@@ -37,34 +37,51 @@ struct FormID2 {
     }
 };
 
+struct SourceOptions {
+    bool auto_refuel = true;
+    bool lorebox_enabled = true;
+    bool skyprompt_enabled = true;
+    std::string lorebox_title = "Fuelable Framework";
+    std::string lorebox_summary = "Remaining: {total_remaining}";
+    std::string lorebox_text = "{requirements} (+{duration})";
+    std::uint32_t lorebox_title_color = 0xA86CCD;
+    std::uint32_t lorebox_text_color = 0xE8EAED;
+    std::uint32_t lorebox_option_color = 0xFFCC80;
+    std::string prompt_text = "Refuel";
+    std::vector<std::uint64_t> compatible_keys;
+};
+
+struct FuelCost {
+    struct Ingredient {
+        RE::TESBoundObject* object;
+        std::int32_t count;
+    };
+    std::vector<Ingredient> ingredients;
+    std::string requirements;
+
+    bool Initialize(RE::TESForm* form);
+    bool CanConsume(RE::PlayerCharacter* actor) const;
+    bool Consume(RE::PlayerCharacter* actor) const;
+};
 
 struct LightSource {
-    const float duration;
-    std::uint32_t formid;
-    const std::string editorid;
-    std::uint32_t fuel;
-    const std::string fuel_editorid;
+    float duration;
+    RE::FormID formid;
+    RE::FormID fuel;
+    std::shared_ptr<const SourceOptions> options;
+    FuelCost cost;
+    RE::TESBoundObject* object = nullptr;
 
     bool init_failed=false;
 
-    LightSource(std::uint32_t id, const std::string id_str, float duration, std::uint32_t fuelid,
-                const std::string fuelid_str)
-        : formid(id), editorid(id_str), duration(duration), fuel(fuelid), fuel_editorid(fuelid_str){
-        if (!formid) {
-            if (auto form = RE::TESForm::LookupByEditorID<RE::TESForm>(editorid)) {
-                logger::info("Found formid for editorid {}", editorid);
-                formid = form->GetFormID();
-            } else logger::info("Could not find formid for editorid {}", editorid);
+    LightSource(RE::FormID id, float duration, RE::FormID fuelid, std::shared_ptr<const SourceOptions> source_options)
+        : duration(duration), formid(id), fuel(fuelid), options(std::move(source_options)),
+          object(FormReader::GetFormByID<RE::TESBoundObject>(id)) {
+        init_failed = !object || !cost.Initialize(FormReader::GetFormByID(fuel));
+        if (init_failed) {
+            logger::error("Failed to initialize source {:08X} with fuel {:08X}", formid, fuel);
         }
-        if (!fuel) {
-            if (auto form = RE::TESForm::LookupByEditorID<RE::TESForm>(fuel_editorid)) {
-                logger::info("Found formid2 for editorid2 {}", editorid);
-                fuel = form->GetFormID();
-            } else logger::info("Could not find formid for editorid {}", editorid);
-        }
-
-        if (!GetBoundObject() || !GetBoundFuelObject()) InitFailed();
-    };
+    }
 
     bool operator < (const LightSource& other) const { return formid < other.formid; }
 
@@ -72,26 +89,17 @@ struct LightSource {
     float remaining = 0.f;
     float elapsed = 0.f;
 
-    std::string_view GetName(){
-        if (auto form = GetFormByID(formid, editorid)) return form->GetName();
-        else return "";
+    std::string_view GetName() const {
+        return object->GetName();
     };
 
-    std::string_view GetFuelName(){
-        if (auto form = GetFormByID(fuel, fuel_editorid)) return form->GetName();
-        else return "";
+    std::string_view GetFuelName() const {
+        return cost.requirements;
     };
 
-    RE::TESBoundObject* GetBoundObject() { return GetFormByID<RE::TESBoundObject>(formid, editorid); };
-
-    RE::TESBoundObject* GetBoundFuelObject() { return GetFormByID<RE::TESBoundObject>(fuel, fuel_editorid); };
+    RE::TESBoundObject* GetBoundObject() const { return object; };
 
 
-private:
-    void InitFailed() {
-        init_failed = true;
-        logger::error("Failed to initialize LightSource with formid {} and fuelid {}", formid, fuel);
-    }
 };
 
 struct UISource {

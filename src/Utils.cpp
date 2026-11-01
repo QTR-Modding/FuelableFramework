@@ -11,11 +11,59 @@ int Utilities::Round2Int(float number) {
     return rounded_number;
 }
 
-bool Utilities::isValidHexWithLength7or8(const char* input) {
-    std::string inputStr(input);
-    std::regex hexRegex("^[0-9A-Fa-f]{7,8}$");  // Allow 7 to 8 characters
-    bool isValid = std::regex_match(inputStr, hexRegex);
-    return isValid;
+std::string Utilities::FormatDuration(float hours) {
+    constexpr double minutes_per_hour = 60;
+    constexpr double hours_per_day = 24;
+    constexpr double minutes_per_day = minutes_per_hour * hours_per_day;
+    const auto minutes = std::round(std::max(0.0, static_cast<double>(hours)) * minutes_per_hour);
+    const auto days = std::floor(minutes / minutes_per_day);
+    const auto remainder = std::fmod(minutes, minutes_per_day);
+    const auto whole_hours = std::floor(remainder / minutes_per_hour);
+    const auto whole_minutes = std::fmod(remainder, minutes_per_hour);
+    std::string text;
+    if (days > 0) text = std::format("{:.0f}d", days);
+    if (whole_hours > 0) {
+        if (!text.empty()) text += " ";
+        text += std::format("{:.0f}h", whole_hours);
+    }
+    if (whole_minutes > 0 || text.empty()) {
+        if (!text.empty()) text += " ";
+        text += std::format("{:.0f}m", whole_minutes);
+    }
+    return text;
+}
+
+std::uint32_t Utilities::ParseRGBColor(std::string_view text, std::uint32_t fallback) {
+    if (text.empty()) return fallback;
+    if (text.starts_with('#')) text.remove_prefix(1);
+    else if (text.starts_with("0x") || text.starts_with("0X")) text.remove_prefix(2);
+    constexpr std::uint32_t rgb_mask = 0xFFFFFF;
+    std::uint32_t value{};
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value, 16);
+    if (error == std::errc{} && end == text.data() + text.size() && value <= rgb_mask) return value;
+    logger::warn("Invalid LoreBox RGB color: {}", text);
+    return fallback;
+}
+
+std::vector<std::uint64_t> Utilities::ParseHandshakeKeys(std::string_view text) {
+    std::vector<std::uint64_t> keys;
+    while (!text.empty()) {
+        const auto comma = text.find(',');
+        auto key = text.substr(0, comma);
+        const auto first = key.find_first_not_of(" \t");
+        if (first != std::string_view::npos) {
+            key = key.substr(first, key.find_last_not_of(" \t") - first + 1);
+            if (key.starts_with("0x") || key.starts_with("0X")) key.remove_prefix(2);
+            std::uint64_t value{};
+            const auto [end, error] = std::from_chars(key.data(), key.data() + key.size(), value, 16);
+            if (error == std::errc{} && end == key.data() + key.size()) {
+                if (std::ranges::find(keys, value) == keys.end()) keys.push_back(value);
+            } else logger::warn("Invalid SkyPrompt handshake key: {}", key);
+        }
+        if (comma == std::string_view::npos) break;
+        text.remove_prefix(comma + 1);
+    }
+    return keys;
 }
 
 std::string Utilities::DecodeTypeCode(std::uint32_t typeCode) {
@@ -60,11 +108,11 @@ void MsgBoxesNotifs::InGame::Remaining(int remaining, std::string_view item) {
     if (remaining < 0.00001)
         return;
     else if (remaining > 1)
-        RE::DebugNotification(std::format("I have about {} hours left in my {}.", remaining, item).c_str());
+        RE::SendHUDMessage::ShowHUDMessage(std::format("I have about {} hours left in my {}.", remaining, item).c_str());
     else if (remaining > 0.5)
-        RE::DebugNotification(std::format("I have about an hour left in my {}.", item).c_str());
+        RE::SendHUDMessage::ShowHUDMessage(std::format("I have about an hour left in my {}.", item).c_str());
     else
-        RE::DebugNotification(std::format("I don't have much left in my {}...", item).c_str());
+        RE::SendHUDMessage::ShowHUDMessage(std::format("I don't have much left in my {}...", item).c_str());
 }
 
 float almost_constant_with_accelerated_cutoff(float x, float start_value, float cutoff, int power) { // Ensure x is within [0, 1]
@@ -75,35 +123,4 @@ float almost_constant_with_accelerated_cutoff(float x, float start_value, float 
 
     // Return the function value
     return (x < cutoff) ? start_value : start_value * drop;
-}
-
-RE::FormID GetFormEditorIDFromString(const std::string& formEditorId) {
-    logger::trace("Getting formid from editorid: {}", formEditorId);
-    if (Utilities::isValidHexWithLength7or8(formEditorId.c_str())) {
-        logger::trace("formEditorId is in hex format.");
-        int form_id_;
-        std::stringstream ss;
-        ss << std::hex << formEditorId;
-        ss >> form_id_;
-        auto temp_form = GetFormByID(form_id_, "");
-        if (temp_form) return temp_form->GetFormID();
-        else {
-            logger::error("Formid is null for editorid {}", formEditorId);
-            return 0;
-        }
-    }
-    if (formEditorId.empty()) return 0;
-    else if (!Utilities::IsPo3Installed()) {
-        logger::error("Po3 is not installed.");
-        MsgBoxesNotifs::Windows::Po3ErrMsg();
-        return 0;
-    }
-    auto temp_form = GetFormByID(0, formEditorId);
-    if (temp_form) {
-        logger::trace("Formid is not null with formid {}", temp_form->GetFormID());
-        return temp_form->GetFormID();
-    } else {
-        logger::trace("Formid is null for editorid {}", formEditorId);
-        return 0;
-    }
 }

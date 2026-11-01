@@ -1,0 +1,18 @@
+{
+    "name": "Fuelable Framework",
+    "prompt_pivot": "bottom-left",
+    "marginX": 330.6449890136719,
+    "marginY": 221.7740020751953,
+    "n_max_buttons": 4,
+    "xPercent": 0.7789999842643738,
+    "yPercent": 0.7200000286102295,
+    "prompt_size": 45.650001525878906,
+    "icon2font_ratio": 1.0,
+    "linespacing": 0.2669999897480011,
+    "progress_speed": 0.5519999861717224,
+    "fadeSpeed": 0.019999999552965164,
+    "font_name": "Jost-Regular.ttf",
+    "font_shadow": 0.20000000298023224,
+    "prompt_alignment": "vertical",
+    "prompt_order": "icon-first"
+}

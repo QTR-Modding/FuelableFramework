@@ -2,25 +2,9 @@
 
 void LightSourceManager::Init() {
     Clear();
-    bool init_failed = false;
-    // sources direk butun sourcelari tutuyor ayni source with different fuel dahil.
-    for (auto& src : sources) {
-        if (src.init_failed) {
-            init_failed = true;
-            break;
-        }
-        src.remaining = 0.f;
-        src.elapsed = 0.f;
-
-        //SetData({src.formid, src.fuel}, src.remaining);
-        // check if forms are valid
-    }
-    if (init_failed) {
-        is_healthy = false;
-        logger::error("Failed to initialize LightSourceManager.");
-        if (Settings::enabled_err_msgbox) MsgBoxesNotifs::InGame::InitErr();
-        sources.clear();
-        return;
+    for (auto& source : sources) {
+        source.remaining = 0.0f;
+        source.elapsed = 0.0f;
     }
 
     current_source = nullptr;
@@ -32,15 +16,35 @@ void LightSourceManager::Init() {
     logger::info("LightSourceManager initialized.");
 }
 void LightSourceManager::UpdateLoop() {
+    std::lock_guard lock(state_mutex);
+    if (!current_source) return;
     const auto cal = RE::Calendar::GetSingleton();
-    if (__restart) {
-        is_burning = true;
-        __restart = false;
-        __start_h = cal->GetHoursPassed();
-    }
     if (RE::UI::GetSingleton()->GameIsPaused()) return;
-    if (HasFuel(current_source)) current_source->elapsed = cal->GetHoursPassed() - __start_h;
-    else NoFuel();
+    current_source->elapsed = cal->GetHoursPassed() - __start_h;
+    if (!HasFuel(current_source)) NoFuel();
+}
+
+float LightSourceManager::GetRemaining(const LightSource* src) const {
+    std::lock_guard lock(state_mutex);
+    return std::max(0.0f, src->remaining - src->elapsed);
+}
+
+LightSource* LightSourceManager::FindSource(RE::FormID source, RE::FormID fuel) {
+    auto found = std::ranges::find_if(sources, [=](const LightSource& entry) {
+        return entry.formid == source && entry.fuel == fuel;
+    });
+    return found == sources.end() ? nullptr : &*found;
+}
+
+bool LightSourceManager::Refuel(LightSource& source) {
+    std::lock_guard lock(state_mutex);
+    if (!source.cost.Consume(RE::PlayerCharacter::GetSingleton())) return false;
+    const bool resume = current_source == &source && is_burning && isRunning();
+    if (resume) PauseBurn();
+    source.remaining = std::max(0.0f, source.remaining) + source.duration;
+    if (Settings::enabled_plyrmsg) MsgBoxesNotifs::InGame::Refuel(source.GetName(), source.GetFuelName());
+    if (resume) UnPauseBurn();
+    return true;
 }
 bool LightSourceManager::SetSourceWithRemaningFuel(RE::FormID eqp_obj) {
     for (auto& src : sources) {
@@ -84,25 +88,29 @@ void LightSourceManager::LogRemainings() {
 }
 
 void LightSourceManager::Reset() {
+    std::lock_guard lock(state_mutex);
     Stop();
     Init();
 }
 void LightSourceManager::SendData() {
+    std::lock_guard lock(state_mutex);
     for (auto& src : sources) {
         SetData({src.formid, src.fuel}, src.remaining);
     }
 }
 void LightSourceManager::ReceiveData() {
+    std::lock_guard lock(state_mutex);
     for (auto& src : sources) {
         for (const auto& [formId2, value] : m_Data) {
             if (formId2.outerKey == src.formid && formId2.innerKey == src.fuel) {
-                src.remaining = std::min(value, src.duration);
+                src.remaining = value;
                 break;
             }
         }
     }
 }
 void LightSourceManager::HandleEquip(RE::FormID a_formid, bool equipped) {
+    std::lock_guard lock(state_mutex);
     if (equipped) {
         if (IsCurrentSource(a_formid)) return;
         if (!SetSource(a_formid)) logger::info("Failed to set source. Something is terribly wrong!!!");
@@ -114,54 +122,48 @@ void LightSourceManager::HandleEquip(RE::FormID a_formid, bool equipped) {
 };
 
 float LightSourceManager::PauseBurn() {
+    std::lock_guard lock(state_mutex);
     Stop();
+    if (!current_source) return 0.0f;
+    if (is_burning && !__restart) {
+        current_source->elapsed = RE::Calendar::GetSingleton()->GetHoursPassed() - __start_h;
+    }
     current_source->remaining -= current_source->elapsed;
     current_source->elapsed = 0.f;
     __restart = true;
     return current_source->remaining;  // sadece nofuel icinde kullanmak icin
 };
 
+void LightSourceManager::UnPauseBurn() {
+    std::lock_guard lock(state_mutex);
+    __start_h = RE::Calendar::GetSingleton()->GetHoursPassed();
+    __restart = false;
+    Start();
+}
 
 void LightSourceManager::NoFuel() {
-    auto plyr = RE::PlayerCharacter::GetSingleton();
-    // yanarken fuel kalmadi. simdi elimde ayni source icin baska source-fuel kombinasyonlari var mi diye bakicam.
-    const RE::FormID current_source_formid = current_source->formid;
-    const RE::FormID current_fuel = current_source->fuel;
-    std::vector<std::string_view> fuel_list;
-    bool fuel_found = false;
-    
-    for (auto& src : sources) {
-        
-        if (src.formid != current_source_formid) continue;
-        
-        fuel_list.push_back(src.GetFuelName());
-        auto fuel_item = src.GetBoundFuelObject();
-
-        if (plyr->GetItemCount(fuel_item) > 0) {
-            float to_be_transferred = PauseBurn();
-            current_source->remaining = 0.f;  // bekleme sirasinda fuellar arasindaki gecislerde remaining eksiye geciyo diye
-            logger::trace("Hi2");
-            SetSource(src.formid, src.fuel);
-            if (Settings::enabled_plyrmsg) MsgBoxesNotifs::InGame::Refuel(GetName(), GetFuelName());
-            plyr->RemoveItem(fuel_item, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);  // Refuel
-            current_source->remaining += current_source->duration + to_be_transferred;          // Refuel
-            Start();
-            fuel_found = true;
-            break;
+    auto* player = RE::PlayerCharacter::GetSingleton();
+    auto* exhausted = current_source;
+    const float overrun = std::min(0.0f, PauseBurn());
+    exhausted->remaining = 0.0f;
+    std::vector<std::string_view> requirements;
+    for (auto& source : sources) {
+        if (source.formid != exhausted->formid) continue;
+        requirements.push_back(source.GetFuelName());
+        if (HasFuel(&source) || (source.options->auto_refuel && Refuel(source))) {
+            source.remaining += overrun;
+            current_source = &source;
+            UnPauseBurn();
+            return;
         }
     }
-    if (!fuel_found) {
-        SetSource(current_source_formid, current_fuel);
-        Stop();  // better safe than sorry?
-        if (Settings::enabled_plyrmsg){
-            MsgBoxesNotifs::InGame::NoFuel(GetName(),
-                                           static_cast<std::string_view>(Utilities::String::join(fuel_list, " or ")));
-        }
-        // This has to be the last thing that happens in this function, which involves current_source because
-        // current_source is set to nullptr in the main thread
-        RE::ActorEquipManager::GetSingleton()->UnequipObject(plyr, GetBoundObject(), nullptr, 1, nullptr, true,
-                                                                false, false);
+    is_burning = false;
+    current_source = nullptr;
+    if (Settings::enabled_plyrmsg) {
+        MsgBoxesNotifs::InGame::NoFuel(exhausted->GetName(), Utilities::String::join(requirements, " or "));
     }
+    RE::ActorEquipManager::GetSingleton()->UnequipObject(player, exhausted->GetBoundObject(), nullptr, 1,
+                                                       nullptr, true, false, false);
 }
 void LightSourceManager::ShowRemaining() {
     if (!Settings::enabled_remainingmsg) return;
@@ -183,6 +185,7 @@ bool LightSourceManager::IsCurrentSource(RE::FormID eqp_obj) {
 }
 
 void LightSourceManager::StartBurn() {
+    std::lock_guard lock(state_mutex);
     if (is_burning) return;
     if (!current_source) {
         logger::error("No current source!!No current source!!No current source!!No current source!!");
@@ -190,10 +193,11 @@ void LightSourceManager::StartBurn() {
         return;
     }
     ShowRemaining();
-    __restart = true;
-    Start();
+    is_burning = true;
+    UnPauseBurn();
 }
 void LightSourceManager::StopBurn() {
+    std::lock_guard lock(state_mutex);
     PauseBurn();
     is_burning = false;
     current_source = nullptr;

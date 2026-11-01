@@ -1,0 +1,10 @@
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO QTR-Modding/SkyPromptAPI
+    REF 1fe9d10d31fb0cb8c5074ddcfeba3f89518823e7
+    SHA512 04d4301e9e14759314fa70f315a013e41b31888fc6677cd8058d0a13f6fe6ea8301f774afde996c6570259ba5466e33de88f0946cf0535f59cb41c6a0bdeffc2
+    HEAD_REF main
+)
+
+file(INSTALL "${SOURCE_PATH}/include/SkyPrompt" DESTINATION "${CURRENT_PACKAGES_DIR}/include")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")

@@ -15,9 +15,7 @@ void MagicCastHook::Start(RE::LightEffect* a_eff) {
     if (!a_eff || a_eff->GetBaseObject()->GetFormID() != Settings::ql_formid) return BaseFunction_Start(a_eff);
     logger::trace("aaaQLLightSelf detected. Duration: {}", Settings::ql_duration);
     if (ql_depleted) {
-        const auto temp_fuel = RE::TESForm::LookupByID<RE::TESBoundObject>(Settings::ql_fuel);
-        if (auto plyr = RE::PlayerCharacter::GetSingleton(); plyr->GetItemCount(temp_fuel) > 0) {
-            plyr->RemoveItem(temp_fuel, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+        if (Settings::ql_cost.Consume(RE::PlayerCharacter::GetSingleton())) {
             ql_elapsed_t = 0.f;
             ql_depleted = false;
         } else {
@@ -44,10 +42,7 @@ void MagicCastHook::Update(RE::LightEffect* a_eff, float a_delta) {
     logger::trace("Elapsed: {}", ql_elapsed_t);
 
     if (ql_elapsed_t >= Settings::ql_duration || ql_depleted) {
-        const auto temp_fuel = RE::TESForm::LookupByID<RE::TESBoundObject>(Settings::ql_fuel);
-        // check fuel
-        if (auto plyr = RE::PlayerCharacter::GetSingleton(); plyr->GetItemCount(temp_fuel) > 0) {
-            plyr->RemoveItem(temp_fuel, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+        if (Settings::ql_cost.Consume(RE::PlayerCharacter::GetSingleton())) {
             ql_elapsed_t = 0.f;
         } 
         else NoFuelQL(a_eff);
@@ -67,8 +62,7 @@ void NoFuelQL(RE::LightEffect* a_eff) {
     a_eff->Dispel(false);
     ql_depleted = true;
     if (Settings::enabled_plyrmsg) {
-        const auto temp_fuel = RE::TESForm::LookupByID<RE::TESBoundObject>(Settings::ql_fuel);
-        MsgBoxesNotifs::InGame::NoFuel("Quick Light", temp_fuel->GetName());
+        MsgBoxesNotifs::InGame::NoFuel("Quick Light", Settings::ql_cost.requirements);
     }
 }
 

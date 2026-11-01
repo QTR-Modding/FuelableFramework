@@ -1,9 +1,10 @@
 #pragma once
 
 #include "Serialization.h"
-#include "Ticker.h"
+#include "CLibUtilsQTR/Ticker.hpp"
 
 class LightSourceManager : public Ticker, public BaseFormFloat {
+    mutable std::recursive_mutex state_mutex;
     
     bool __restart;
     float __start_h;
@@ -22,13 +23,20 @@ class LightSourceManager : public Ticker, public BaseFormFloat {
 
     void NoFuel();
 
-    inline float GetRemaining(LightSource* src) { return src->remaining - src->elapsed; };
     inline bool HasFuel(LightSource* src) { return GetRemaining(src) > 0.0001f; };
     void ShowRemaining();
 
 public:
+    float GetRemaining(const LightSource* src) const;
+    bool Refuel(LightSource& source);
+    LightSource* FindSource(RE::FormID source, RE::FormID fuel);
     LightSourceManager(std::vector<LightSource>& data, std::chrono::milliseconds interval)
-        : sources(data), Ticker([this]() { UpdateLoop(); }, interval) {
+        : sources(data), Ticker([this]() {
+              SKSE::GetTaskInterface()->AddTask([this] {
+                  if (isRunning()) UpdateLoop();
+              });
+          }, interval) {
+        instance = this;
         Init();
     };
 
@@ -42,12 +50,15 @@ public:
         static LightSourceManager singleton(data, std::chrono::milliseconds(u_intervall));
         return &singleton;
     }
+    static LightSourceManager* GetSingleton() {
+        return instance;
+    }
 
     bool IsValidSource(RE::FormID eqp_obj);
 
     void StartBurn();
     float PauseBurn();
-    inline void UnPauseBurn() { Start(); };
+    void UnPauseBurn();
     void StopBurn();
     
 
@@ -60,4 +71,7 @@ public:
     void ReceiveData();
 
     void HandleEquip(RE::FormID a_formid, bool equipped);
+
+private:
+    inline static LightSourceManager* instance = nullptr;
 };

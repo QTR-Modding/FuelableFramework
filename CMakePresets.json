@@ -36,6 +36,12 @@
             "inherits": ["base"],
             "displayName": "Release",
             "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+        },
+        {
+            "name": "relwithdebuginfo",
+            "inherits": ["base"],
+            "displayName": "RelWithDebInfo",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
         }
     ]
 }
