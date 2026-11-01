@@ -58,6 +58,8 @@ OptionColor = FFCC80
 [SkyPrompt]
 Enabled = true
 Text = Recharge
+; Leave empty unless another mod requests a reciprocal SkyPrompt handshake.
+CompatibleKeys =
 ```
 
 `AutoRefuel` defaults to true. With false, an exhausted item is unequipped until the player refills it. With SkyPrompt loaded, highlight the item in the player's inventory and hold its action key. Each configured fuel offers an action; completing the hold consumes one complete cost and adds the configured duration without discarding stored time. Release the key before holding again for another refill. Added time survives saving and loading.
@@ -76,4 +78,6 @@ Fuelable Framework uses its own SkyPrompt theme to position its inventory action
 
 SkyPrompt handshakes allow participating mods' prompts to appear together. Fuelable Framework's handshake key is `0x4655454C41424C45` (ASCII `FUELABLE`). A cooperating mod must request a reciprocal handshake with that key.
 
-Set `CompatibleKeys` in `[SkyPrompt]` to a comma-separated list of the cooperating mods' hexadecimal handshake keys. It defaults to empty. The requests apply to the framework's SkyPrompt client; SkyPrompt handshakes are pairwise, not limited to one INI's actions.
+Leave `CompatibleKeys` empty for normal use. To show Fuelable Framework's prompts alongside another mod's prompts, enter that mod's hexadecimal handshake key here. Use the key supplied by its author; separate multiple keys with commas. The other mod must also request compatibility with Fuelable Framework's key above. Adding a key on only one side does not establish compatibility.
+
+The requests apply to the framework's SkyPrompt client; SkyPrompt handshakes are pairwise, not limited to one INI's actions.
