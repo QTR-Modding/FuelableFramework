@@ -180,7 +180,8 @@ namespace {
             for (const auto& [source, stored] : group.sources) {
                 const auto row = FormatText(options.lorebox_text, *source, stored, group.remaining);
                 if (row.empty()) continue;
-                text += std::format("<font color=\"#{:06X}\"><li>{}</li></font>", options.lorebox_option_color, row);
+                if (!text.empty()) text += "<br>";
+                text += std::format("<font color=\"#{:06X}\">\u2022 {}</font>", options.lorebox_option_color, row);
             }
             return text;
         }

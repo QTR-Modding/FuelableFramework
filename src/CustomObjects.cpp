@@ -32,9 +32,9 @@ bool FuelCost::Initialize(RE::TESForm* form) {
     }
     if (ingredients.empty()) return false;
     for (const auto& ingredient : ingredients) {
-        if (!requirements.empty()) requirements += " + ";
+        if (!requirements.empty()) requirements += ", ";
         requirements += ingredient.object->GetName();
-        if (ingredient.count != 1) requirements += std::format(" x{}", ingredient.count);
+        requirements += std::format(" ({})", ingredient.count);
     }
     return true;
 }
