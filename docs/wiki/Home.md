@@ -121,4 +121,4 @@ SkyPrompt handshakes allow participating mods' prompts to appear together. Fuela
 
 Leave `CompatibleKeys` empty for normal use. To show Fuelable Framework's prompts alongside another mod's prompts, enter that mod's hexadecimal handshake key here. Use the key supplied by its author; separate multiple keys with commas. The other mod must also request compatibility with Fuelable Framework's key above. Adding a key on only one side does not establish compatibility.
 
-The requests apply to the framework's SkyPrompt client; SkyPrompt handshakes are pairwise, not limited to one INI's actions.
+A handshake configured in one INI applies to all Fuelable Framework prompts.
