@@ -187,8 +187,10 @@ namespace {
                 text = std::format("<b><font color=\"#{:06X}\">{}</font></b>", options.lorebox_title_color, title);
             }
             if (!summary.empty()) {
+                constexpr auto summary_font_size = 16;
                 if (!text.empty()) text += "<br>";
-                text += std::format("<font color=\"#{:06X}\">{}</font>", options.lorebox_text_color, summary);
+                text += std::format("<font color=\"#{:06X}\" size=\"{}\">{}</font>",
+                                    options.lorebox_text_color, summary_font_size, summary);
             }
             constexpr auto option_font_size = 14;
             for (const auto& entry : group.sources) {
