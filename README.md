@@ -8,7 +8,7 @@ The wiki source is [docs/wiki/Home.md](docs/wiki/Home.md). Documentation changes
 
 #### Build on Windows
 
-1. Initialize the pinned CommonLibVR-MIT dependency with `git submodule update --init --recursive`.
+1. Set **`COMMONLIB_SSE_FOLDER`** to your local CommonLibVR-MIT source folder.
 2. Set **`VCPKG_ROOT`** to your [vcpkg](https://github.com/microsoft/vcpkg) folder.
 3. In a Visual Studio x64 developer shell, run `cmake --preset relwithdebuginfo`, then `cmake --build build/relwithdebuginfo --target FuelableFramework`.
 
